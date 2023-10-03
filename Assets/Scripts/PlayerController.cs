@@ -1,38 +1,56 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEditor.SceneView;
 
 public class PlayerController : MonoBehaviour
 {
-    //rate of movement
-    public float speed = 30f;
-    public float mouseSensitivity = 10f;
 
-    public Camera playerCamera;
 
-    private CharacterController characterController;
+    CharacterController Controller;
 
+    public float Speed = 10.0f;
+
+    public Transform Cam;
+
+    public GameObject ProjectilePrefab;
     // Start is called before the first frame update
     void Start()
     {
-        characterController = GetComponent<CharacterController>();
+
+        Controller = GetComponent<CharacterController>();
 
     }
 
     // Update is called once per frame
     void Update()
     {
-        Debug.Log(Time.deltaTime);
-        //moving the player
-        Vector3 moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0.0f, Input.GetAxis("Vertical"));
-        moveDirection = transform.TransformDirection(moveDirection);
-        moveDirection *= speed;
 
-        characterController.Move(moveDirection * Time.deltaTime);
+        float Horizontal = Input.GetAxis("Horizontal") * Speed * Time.deltaTime;
+        float Vertical = Input.GetAxis("Vertical") * Speed * Time.deltaTime;
 
-        // mouse rotate look
-        float horizontalRotation = Input.GetAxis("Mouse X") * mouseSensitivity;
-        transform.Rotate(0, horizontalRotation, 0);
+        Vector3 Movement = Cam.transform.right * Horizontal + Cam.transform.forward * Vertical;
+        Movement.y = 0f;
 
+
+
+        Controller.Move(Movement);
+
+        if (Movement.magnitude != 0f)
+        {
+            transform.Rotate(Vector3.up * Input.GetAxis("Mouse X") * Cam.GetComponent<CameraController>().sensivity * Time.deltaTime);
+
+
+            Quaternion CamRotation = Cam.rotation;
+            CamRotation.x = 0f;
+            CamRotation.z = 0f;
+
+            transform.rotation = Quaternion.Lerp(transform.rotation, CamRotation, 0.1f);
+        }
+                    if (Input.GetKeyDown(KeyCode.Mouse0))
+            {
+                Instantiate(ProjectilePrefab, transform.position, transform.rotation);
+            }
     }
+
 }
