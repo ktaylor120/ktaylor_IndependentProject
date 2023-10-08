@@ -112,8 +112,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f178ac485b60044d95d367894009277, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Speed: 10
   Cam: {fileID: 9073539814343797023}
+  Speed: 10
   ProjectilePrefab: {fileID: 1821337812279429330, guid: 7a30c8e058d0fb84ba0d8b757f3ebeb8, type: 3}
 --- !u!143 &9073539814002498007
 CharacterController:

@@ -5,19 +5,15 @@ using static UnityEditor.SceneView;
 
 public class PlayerController : MonoBehaviour
 {
-
-
     CharacterController Controller;
-
-    public float Speed = 10.0f;
-
     public Transform Cam;
 
+    public float Speed = 10.0f;
     public GameObject ProjectilePrefab;
+
     // Start is called before the first frame update
     void Start()
     {
-
         Controller = GetComponent<CharacterController>();
 
     }
@@ -32,8 +28,6 @@ public class PlayerController : MonoBehaviour
         Vector3 Movement = Cam.transform.right * Horizontal + Cam.transform.forward * Vertical;
         Movement.y = 0f;
 
-
-
         Controller.Move(Movement);
 
         if (Movement.magnitude != 0f)
@@ -47,10 +41,11 @@ public class PlayerController : MonoBehaviour
 
             transform.rotation = Quaternion.Lerp(transform.rotation, CamRotation, 0.1f);
         }
-                    if (Input.GetKeyDown(KeyCode.Mouse0))
-            {
-                Instantiate(ProjectilePrefab, transform.position, transform.rotation);
-            }
+
+        if (Input.GetKeyDown(KeyCode.Mouse0))
+        {
+            Instantiate(ProjectilePrefab, transform.position, transform.rotation);
+        }
     }
 
 }
