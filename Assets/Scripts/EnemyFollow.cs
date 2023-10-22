@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class EnemyFollow : MonoBehaviour
 {
-
     public Transform target;
     public float speed = 6.5f;
     public Rigidbody rb;
@@ -30,4 +29,5 @@ public class EnemyFollow : MonoBehaviour
             FollowPlayer();
         }
     }
+
 }
