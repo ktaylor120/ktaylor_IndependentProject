@@ -1,17 +1,24 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 using static UnityEditor.SceneView;
 
 public class PlayerController : MonoBehaviour
 {
+    public LayerMask enemyLayers;
+    public Transform attackPoint;
+    public float attackRange = 0.5f;
+    public int attackDamage = 10;
     CharacterController Controller;
     public Transform Cam;
+
     public AudioClip punch;
     private AudioSource asPalyer;
-    public bool gameOver = false;
 
+    public bool gameOver = false;
     public float Speed = 10.0f;
+
     public GameObject ProjectilePrefab;
     private Animator animPlayer;
 
@@ -37,7 +44,7 @@ public class PlayerController : MonoBehaviour
 
             Controller.Move(Movement);
 
-            if (Movement.magnitude != 0f && !gameOver)
+            if (Movement.magnitude != 0f)
             {
                 transform.Rotate(Vector3.up * Input.GetAxis("Mouse X") * Cam.GetComponent<CameraController>().sensivity * Time.deltaTime);
 
@@ -52,6 +59,7 @@ public class PlayerController : MonoBehaviour
 
             }
         }
+
         void UpdateAnimatorParameters(float horizontal, float vertical)
         {
             float absHorizontal = Mathf.Abs(horizontal);
@@ -62,10 +70,27 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Mouse0) && !gameOver)
         {
+
             Instantiate(ProjectilePrefab, transform.position, transform.rotation);
             asPalyer.PlayOneShot(punch, 1.0f);
         }
+    }
+        private void HitBoxEvent()
+    {
+        // Detect enemies
+        Collider[] hitEnemies = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayers);
+        // Damage them
+        foreach (Collider enemy in hitEnemies)
+        {
+           Destroy(enemy);
+        }
 
+    }
+    private void OnDrawGizmosSelected()
+    {
+        if (attackPoint == null)
+            return;
+        Gizmos.DrawWireSphere(attackPoint.position, attackRange);
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -76,7 +101,6 @@ public class PlayerController : MonoBehaviour
             Debug.Log("Game Over!");
             gameOver = true;
             animPlayer.SetBool("Dead", true);
-
         }
     }
 }
