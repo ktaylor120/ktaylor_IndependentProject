@@ -10,7 +10,7 @@ public class EnemyFollow : MonoBehaviour
 
     private void Start()
     {
-        target = GameObject.FindGameObjectWithTag("Player").transform;
+        target = GameObject.Find("Player").transform;
     }
     void FollowPlayer()
     {
