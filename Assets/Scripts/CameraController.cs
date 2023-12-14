@@ -5,35 +5,39 @@ using UnityEngine;
 public class CameraController : MonoBehaviour
 {
     private const float YMin = -50.0f;
-    private const float YMax = 50.0f;
+    private const float YMax = 30.0f;
 
     public Transform lookAt;
+    public Transform player;
 
-    public Transform Player;
+    public float minDistance = 3.0f;
+    public float maxDistance = 10.0f;
+    public float sensitivity = 2.0f;
+    public float scrollSpeed = 10.0f; 
+    public float yOffset = 5.0f; 
 
-    public float distance = 10.0f;
     private float currentX = 0.0f;
     private float currentY = 0.0f;
-    public float sensivity = 50.0f;
+    private float distance = 8.0f;
 
-    // Start is called before the first frame update
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
-    // Update is called once per frame
     void LateUpdate()
     {
-        currentX += Input.GetAxis("Mouse X") * sensivity * Time.deltaTime;
-        currentY += Input.GetAxis("Mouse Y") * sensivity * Time.deltaTime;
+        currentX += Input.GetAxis("Mouse X") * sensitivity;
+        currentY += Input.GetAxis("Mouse Y") * sensitivity;
+        distance -= Input.GetAxis("Mouse ScrollWheel") * scrollSpeed;
 
         currentY = Mathf.Clamp(currentY, YMin, YMax);
+        distance = Mathf.Clamp(distance, minDistance, maxDistance);
 
-        Vector3 Direction = new Vector3(0, 0, -distance);
+        Vector3 direction = new Vector3(0, -yOffset, -distance);
         Quaternion rotation = Quaternion.Euler(currentY, currentX, 0);
-        transform.position = lookAt.position - rotation * Direction;
+        transform.position = lookAt.position - rotation * direction;
 
         transform.LookAt(lookAt.position);
     }

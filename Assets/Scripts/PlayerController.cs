@@ -1,129 +1,323 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
-using static UnityEditor.SceneView;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
-    CharacterController Controller;
+    // Components
+    private CharacterController Controller;
     public Transform Cam;
-
-    public AudioClip punch;
-    private AudioSource asPalyer;
-
-    public bool gameOver = false;
-    public float Speed = 10.0f;
-    public float powerUpSpeed = 20.0f;
-    public GameObject PowerUpIndicator;
-    bool hasPowerUp = false;
-
-    public GameObject ProjectilePrefab;
     private Animator animPlayer;
+    private AudioSource asPlayer;
+
+    // Audio Clips
+    public AudioClip punch;
+    public AudioClip hit;
+    public AudioClip blocked;
+
+    // Attack Parameters
+    public Transform attackPoint;
+    public Transform attackPoint2;
+    public LayerMask enemyLayer;
+    public float attackRange = 0.5f;
+    public int attackDamage = 10;
+
+    // Gameplay Parameters
+    public bool gameOver = false;
+    public float Speed = 100.0f;
+    private bool isBlocking = false;
+    private bool isHurt = false;
+    private bool isAttacking = false;
+    private bool isAttacking2 = false;
+    private bool isKicking = false;
+    private bool isKicking2 = false;
+    private float timeBetweenAttacks = 0.75f;
+    private float attackTimer = 0f;
+
+    // Health Parameters
+    private int currentHealth;
+    public int maxHealth = 100;
+    public GameObject hitParticlePrefab;
+    public GameObject blockParticlePrefab;
+    public GameObject gameOverUI;
+    public HealthBarUI healthBar;
 
     // Start is called before the first frame update
     void Start()
     {
+        currentHealth = maxHealth;
         Controller = GetComponent<CharacterController>();
-        asPalyer = GetComponent<AudioSource>();
+        asPlayer = GetComponent<AudioSource>();
         animPlayer = GetComponent<Animator>();
-
+        healthBar.SetMaxHealth(maxHealth);
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (hasPowerUp)
+        if (!CanPerformActions())
         {
-            float Horizontal = Input.GetAxis("Horizontal") * powerUpSpeed * Time.deltaTime;
-            float Vertical = Input.GetAxis("Vertical") * powerUpSpeed * Time.deltaTime;
-            Vector3 Movement = Cam.transform.right * Horizontal + Cam.transform.forward * Vertical;
-            Movement.y = 0f;
-
-            Controller.Move(Movement);
-
-            if (Movement.magnitude != 0f)
-            {
-                transform.Rotate(Vector3.up * Input.GetAxis("Mouse X") * Cam.GetComponent<CameraController>().sensivity * Time.deltaTime);
-
-
-                Quaternion CamRotation = Cam.rotation;
-                CamRotation.x = 0f;
-                CamRotation.z = 0f;
-
-                UpdateAnimatorParameters(Horizontal, Vertical);
-
-                transform.rotation = Quaternion.Lerp(transform.rotation, CamRotation, 0.1f);
-
-            }
+            PlayerMovement();
         }
-        else if (!gameOver)
+
+        HandleAttackInput();
+        HandleBlockInput();
+    }
+
+    bool CanPerformActions()
+    {
+        return isAttacking || isAttacking2 || isHurt || isBlocking || isKicking || isKicking2 || gameOver;
+    }
+
+    void HandleAttackInput()
+    {
+        if (Input.GetKeyDown(KeyCode.Mouse0) && !isHurt && !isBlocking && !gameOver)
         {
-            float Horizontal = Input.GetAxis("Horizontal") * Speed * Time.deltaTime;
-            float Vertical = Input.GetAxis("Vertical") * Speed * Time.deltaTime;
-
-            Vector3 Movement = Cam.transform.right * Horizontal + Cam.transform.forward * Vertical;
-            Movement.y = 0f;
-
-            Controller.Move(Movement);
-
-            if (Movement.magnitude != 0f)
+            if (!isAttacking && !isAttacking2)
             {
-                transform.Rotate(Vector3.up * Input.GetAxis("Mouse X") * Cam.GetComponent<CameraController>().sensivity * Time.deltaTime);
-
-
-                Quaternion CamRotation = Cam.rotation;
-                CamRotation.x = 0f;
-                CamRotation.z = 0f;
-
-                UpdateAnimatorParameters(Horizontal, Vertical);
-
-                transform.rotation = Quaternion.Lerp(transform.rotation, CamRotation, 0.1f);
-
+                StartCoroutine(PerformAttackCombo());
+            }
+            else if (isAttacking && !isAttacking2)
+            {
+                StartCoroutine(PerformSecondAttack());
+            }
+            else
+            {
+                StartCoroutine(PerformThirdAttack());
             }
         }
 
-        void UpdateAnimatorParameters(float horizontal, float vertical)
+        if (Input.GetKeyDown(KeyCode.Mouse1) && !isHurt && !isBlocking && !gameOver)
         {
-            float absHorizontal = Mathf.Abs(horizontal);
-            float absVertical = Mathf.Abs(vertical);
-
-            animPlayer.SetFloat("Speed", Mathf.Max(absHorizontal, absVertical));
+            if (!isKicking && !isKicking2)
+            {
+                StartCoroutine(PerformKickCombo());
+            }
+            else if (isKicking && !isKicking2)
+            {
+                StartCoroutine(PerformSecondKick());
+            }
+            else
+            {
+                StartCoroutine(PerformThirdKick());
+            }
         }
 
-        if (Input.GetKeyDown(KeyCode.Mouse0) && !gameOver)
+        if (isAttacking || isAttacking2 || isKicking || isKicking2)
         {
-            Vector3 spawnPosition = transform.position + new Vector3(0, 2, 0);
-            Instantiate(ProjectilePrefab, spawnPosition, transform.rotation);
-            asPalyer.PlayOneShot(punch, 1.0f);
-        }
-    }
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("PowerUp"))
-        {
-            hasPowerUp = true;
-            Destroy(other.gameObject);
-            StartCoroutine(PowerUpCountdown());
-            PowerUpIndicator.SetActive(true);
+            HandleAttackCooldown();
+            return;
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    void HandleBlockInput()
     {
-
-        if (collision.gameObject.CompareTag("Enemy"))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            Debug.Log("Game Over!");
-            gameOver = true;
-            animPlayer.SetBool("Dead", true);
+            isBlocking = true;
+            animPlayer.SetBool("Block", true);
         }
 
+        if (Input.GetKeyUp(KeyCode.Space))
+        {
+            isBlocking = false;
+            animPlayer.SetBool("Block", false);
+        }
     }
-    IEnumerator PowerUpCountdown()
+
+    void HandleAttackCooldown()
     {
-        yield return new WaitForSeconds(8);
-        hasPowerUp = false;
-        PowerUpIndicator.SetActive(false);
+        attackTimer += Time.deltaTime;
+        if (attackTimer >= timeBetweenAttacks)
+        {
+            isAttacking = false;
+            isKicking = false;
+            attackTimer = 0f;
+        }
+        UpdateAnimatorParameters(0f, 0f);
+    }
+
+    void PlayerMovement()
+    {
+        float horizontal = Input.GetAxis("Horizontal") * Speed * Time.deltaTime;
+        float vertical = Input.GetAxis("Vertical") * Speed * Time.deltaTime;
+
+        Vector3 movement = Cam.transform.right * horizontal + Cam.transform.forward * vertical;
+        movement.y = 0f;
+
+        if (movement.magnitude != 0f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(movement.normalized, Vector3.up);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 0.1f);
+        }
+
+        Controller.Move(movement);
+
+        if (movement.magnitude != 0f)
+        {
+            UpdateAnimatorParameters(horizontal, vertical);
+        }
+    }
+
+    void UpdateAnimatorParameters(float horizontal, float vertical)
+    {
+        float absHorizontal = Mathf.Abs(horizontal);
+        float absVertical = Mathf.Abs(vertical);
+        float speed = Mathf.Max(absHorizontal, absVertical);
+
+        Debug.Log("Speed (Before Modification): " + speed);
+
+        // Modify the speed if necessary
+
+        Debug.Log("Speed (After Modification): " + speed);
+
+        animPlayer.SetFloat("Speed", speed);
+    }
+
+    private IEnumerator PerformAttackCombo()
+    {
+        isAttacking = true;
+
+        animPlayer.SetTrigger("Punch1");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+
+        isAttacking = false;
+    }
+    private IEnumerator PerformSecondAttack()
+    {
+        isAttacking2 = true;
+
+        animPlayer.SetTrigger("Punch2");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+
+        isAttacking2 = false;
+    }
+    private IEnumerator PerformThirdAttack()
+    {
+        isAttacking = true;
+        animPlayer.SetTrigger("Punch3");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+        isAttacking = false;
+    }
+    //KICK COMBOS
+        private IEnumerator PerformKickCombo()
+    {
+        isKicking = true;
+
+        animPlayer.SetTrigger("Kick1");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+
+        isKicking = false;
+    }
+    private IEnumerator PerformSecondKick()
+    {
+        isKicking2 = true;
+
+        animPlayer.SetTrigger("Kick2");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+
+        isKicking2 = false;
+    }
+    private IEnumerator PerformThirdKick()
+    {
+        isKicking = true;
+        animPlayer.SetTrigger("Kick3");
+
+        yield return new WaitForSeconds(timeBetweenAttacks);
+        isKicking = false;
+    }
+    private void HitBoxEvent()
+    {
+        asPlayer.PlayOneShot(punch);
+        Collider[] hitEnemies = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayer);
+
+        foreach (Collider enemy in hitEnemies)
+        {
+            EnemyFollow enemyFollow = enemy.GetComponent<EnemyFollow>();
+
+            if (enemyFollow != null)
+            {
+                enemyFollow.TakeDamage(attackDamage);
+
+                asPlayer.PlayOneShot(hit);
+
+            }
+        }
+    }
+    private void HitBoxEvent2()
+    {
+        asPlayer.PlayOneShot(punch);
+        Collider[] hitEnemies = Physics.OverlapSphere(attackPoint2.position, attackRange, enemyLayer);
+
+        foreach (Collider enemy in hitEnemies)
+        {
+            EnemyFollow enemyFollow = enemy.GetComponent<EnemyFollow>();
+
+            if (enemyFollow != null)
+            {
+                enemyFollow.TakeDamage(attackDamage);
+
+                asPlayer.PlayOneShot(hit);
+
+            }
+        }
+    }
+    public void TakeDamage(int damage)
+    {
+        if (isBlocking )
+        {
+            isHurt = true;
+            animPlayer.SetTrigger("BlockStun");
+            asPlayer.PlayOneShot(blocked);
+            Vector3 spawnPosition = transform.position + Vector3.up + new Vector3(0f, 1f, 1f);
+            Instantiate(blockParticlePrefab, spawnPosition, Quaternion.identity);
+        }
+        else
+        {
+            isHurt = true;
+            currentHealth -= damage;
+            healthBar.SetHealth(currentHealth);
+            animPlayer.SetTrigger("Hurt");
+            asPlayer.PlayOneShot(hit);
+            Vector3 spawnPosition = transform.position + Vector3.up + new Vector3(0f, 1f, 1f);
+            Instantiate(hitParticlePrefab, spawnPosition, Quaternion.identity);
+
+            if (currentHealth <= 0)
+            {
+                die();
+            }
+
+        }
+        UpdateAnimatorParameters(0f, 0f);
+        return;
+    }
+    private void HurtEnd()
+    {
+        isHurt = false;
+    }
+
+    private void die() 
+    {
+        gameObject.layer = 0;
+        gameObject.tag = "Untagged";
+        gameOver = true;
+        animPlayer.SetBool("Dead", true);
+        gameOverUI.SetActive(true);
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (attackPoint == null)
+            return;
+        Gizmos.DrawWireSphere(attackPoint.position, attackRange);
+        Gizmos.DrawWireSphere(attackPoint2.position, attackRange);
     }
 }
